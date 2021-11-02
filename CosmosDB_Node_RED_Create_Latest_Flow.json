@@ -1,0 +1,149 @@
+[
+    {
+        "id": "6250c44219c34672",
+        "type": "inject",
+        "z": "c006ca15317b491a",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payloadType": "date",
+        "x": 280,
+        "y": 420,
+        "wires": [
+            [
+                "6cf02ae7577d2605"
+            ]
+        ]
+    },
+    {
+        "id": "6cf02ae7577d2605",
+        "type": "change",
+        "z": "c006ca15317b491a",
+        "name": "Set Flow Information",
+        "rules": [
+            {
+                "t": "set",
+                "p": "CosmosDBMasterKey",
+                "pt": "flow",
+                "to": "",
+                "tot": "str"
+            },
+            {
+                "t": "set",
+                "p": "url",
+                "pt": "flow",
+                "to": "",
+                "tot": "str"
+            },
+            {
+                "t": "set",
+                "p": "CosmosDBAPIVersion",
+                "pt": "flow",
+                "to": " 2018-12-31",
+                "tot": "str"
+            },
+            {
+                "t": "set",
+                "p": "method",
+                "pt": "flow",
+                "to": "POST",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 480,
+        "y": 420,
+        "wires": [
+            [
+                "1332cc4d7e8dce19"
+            ]
+        ]
+    },
+    {
+        "id": "1332cc4d7e8dce19",
+        "type": "function",
+        "z": "c006ca15317b491a",
+        "name": "Create AuthKey",
+        "func": "msg.payload = {};\n\nvar mastKey = flow.get(\"CosmosDBMasterKey\");\n\nvar today = new Date();\nvar UTCstring = today.toUTCString();\nflow.set(\"RFC1123time\", UTCstring);\n\nvar url = flow.get('url'); \n\n// strip the url of the hostname up and leading slash\nvar strippedurl = url.replace(new RegExp('^https?://[^/]+/'),'/');\n\n// push the parts down into an array so we can determine if the call is on a specific item\n// or if it is on a resource (odd would mean a resource, even would mean an item)\nvar strippedparts = strippedurl.split(\"/\");\nvar truestrippedcount = (strippedparts.length - 1);\n\n// define resourceId/Type now so we can assign based on the amount of levels\nvar resourceId = \"\";\nvar resType = \"\";\n\n// its odd (resource request)\nif (truestrippedcount % 2)\n{\n    // assign resource type to the last part we found.\n    resType = strippedparts[truestrippedcount];\n    \n    if (truestrippedcount > 1)\n    {\n        // now pull out the resource id by searching for the last slash and substringing to it.\n        var lastPart = strippedurl.lastIndexOf(\"/\");\n        resourceId = strippedurl.substring(1,lastPart);\n    }\n}\nelse // its even (item request on resource)\n{\n    // assign resource type to the part before the last we found (last is resource id)\n    resType = strippedparts[truestrippedcount - 1];\n\n    // finally remove the leading slash which we used to find the resource if it was\n    // only one level deep.\n    strippedurl = strippedurl.substring(1);\n    \n    // assign our resourceId\n    resourceId = strippedurl;\n}\n\n// assign our verb\nvar verb = flow.get('method');\n\n// assign our RFC 1123 date\nvar date = UTCstring.toLowerCase();\n\n// parse our master key out as base64 encoding\nvar cryptojs = context.global.cryptojs;\n\nvar key = cryptojs.enc.Base64.parse(mastKey);\n\nvar text = (verb || \"\").toLowerCase() + \"\\n\" + \n               (resType || \"\").toLowerCase() + \"\\n\" + \n               (resourceId || \"\") + \"\\n\" + \n               (date || \"\").toLowerCase() + \"\\n\" + \n               \"\" + \"\\n\";\n               \nvar signature = cryptojs.HmacSHA256(text, key);\n\n// back to base 64 bits\nvar base64Bits = cryptojs.enc.Base64.stringify(signature);\n\nvar MasterToken = \"master\";\nvar TokenVersion = \"1.0\";\nauth = encodeURIComponent(\"type=\" + MasterToken + \"&ver=\" + TokenVersion + \"&sig=\" + base64Bits);\n\n\nmsg.headers = {};\n\nmsg.headers['Authorization'] = auth;\nmsg.headers['x-ms-version'] = flow.get('CosmosDBAPIVersion');\nmsg.headers['x-ms-date'] = flow.get('RFC1123time');\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 700,
+        "y": 420,
+        "wires": [
+            [
+                "ea9e248f1f659fa3"
+            ]
+        ]
+    },
+    {
+        "id": "ea9e248f1f659fa3",
+        "type": "function",
+        "z": "c006ca15317b491a",
+        "name": "Generate Payload",
+        "func": "msg.headers['x-ms-documentdb-is-upsert'] = true;\nmsg.headers['x-ms-documentdb-partitionkey'] = '[\"device146\"]';\n\nmsg.payload.id = \"device146\";\nmsg.payload.temperature = 23;\nmsg.payload.humidity = 30;\n\nmsg.payload[\"_partitionKey\"] = \"device146\";\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 480,
+        "wires": [
+            [
+                "aca58ed9ea07460a"
+            ]
+        ]
+    },
+    {
+        "id": "aca58ed9ea07460a",
+        "type": "http request",
+        "z": "c006ca15317b491a",
+        "name": "",
+        "method": "POST",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "senderr": false,
+        "x": 670,
+        "y": 480,
+        "wires": [
+            [
+                "49f595554eac1d06"
+            ]
+        ]
+    },
+    {
+        "id": "49f595554eac1d06",
+        "type": "debug",
+        "z": "c006ca15317b491a",
+        "name": "Log",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "complete": "true",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 830,
+        "y": 480,
+        "wires": []
+    }
+]
