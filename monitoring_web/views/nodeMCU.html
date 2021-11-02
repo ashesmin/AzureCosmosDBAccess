@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link href='https://fonts.googleapis.com/css?family=Roboto:300,400,500,700,900' rel='stylesheet' type='text/css'>
+
+    <!-- Page title -->
+    <title>INC | Real-time Monitoring</title>
+
+    <!-- Vendor styles -->
+    <link rel="stylesheet" href="vendor/fontawesome/css/font-awesome.css"/>
+    <link rel="stylesheet" href="vendor/animate.css/animate.css"/>
+    <link rel="stylesheet" href="vendor/bootstrap/css/bootstrap.css"/>
+    <link rel="stylesheet" href="vendor/toastr/toastr.min.css"/>
+
+    <!-- App styles -->
+    <link rel="stylesheet" href="styles/pe-icons/pe-icon-7-stroke.css"/>
+    <link rel="stylesheet" href="styles/pe-icons/helper.css"/>
+    <link rel="stylesheet" href="styles/stroke-icons/style.css"/>
+    <link rel="stylesheet" href="styles/style.css">
+</head>
+<body>
+
+<!-- Wrapper-->
+<div class="wrapper">
+
+    <!-- Header-->
+    <nav class="navbar navbar-default navbar-fixed-top">
+        <div class="container-fluid">
+            <div class="navbar-header">
+                <div id="mobile-menu">
+                    <div class="left-nav-toggle">
+                        <a href="#">
+                            <i class="stroke-hamburgermenu"></i>
+                        </a>
+                    </div>
+                </div>
+                <a class="navbar-brand" href="nodeMCU">
+                    INC
+                    <span>v.1.0</span>
+                </a>
+            </div>
+            <div id="navbar" class="navbar-collapse collapse">
+                <ul class="nav navbar-nav navbar-right">
+                </ul>
+            </div>
+        </div>
+    </nav>
+    <!-- End header-->
+
+    <!-- Navigation-->
+    <aside class="navigation">
+        <nav>
+            <ul class="nav luna-nav">
+                <li class="nav-category">
+                    Main
+                </li>
+                <li class="active">
+                    <a href="nodeMCU">nodeMCU</a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+    <!-- End navigation-->
+
+
+    <!-- Main content-->
+    <section class="content">
+        <div class="container-fluid">
+
+            <div class="row">
+                <div class="col-lg-12">
+                    <div class="view-header">
+                        <div class="pull-right text-right" style="line-height: 14px">
+                            <small>Monitoring using platform<br>Dashboard<br> <span class="c-white">v.1.0</span></small>
+                        </div>
+                        <div class="header-icon">
+                            <i class="pe page-header-icon pe-7s-shield"></i>
+                        </div>
+                        <div class="header-title">
+                            <h3 class="m-b-xs">nodeMCU monitoring</h3>
+                            <small>
+                                This web application followed the design of the SPND model. The platform uses the IBM Cloud to maintain connectivity with devices with MQTT. 
+                            </small>
+                        </div>
+                    </div>
+                    <hr>
+                </div>
+            </div>
+
+            <div class="row">
+
+                <div class="col-lg-3 col-xs-6">
+                    <div class="panel panel-filled">
+
+                        <div class="panel-body">
+                            <h2 id="temperature_value" class="m-b-none">
+                                0 <span class="slight"><i class="fa fa-play fa-rotate-270 text-warning"> </i> 0</span>
+                            </h2>
+                            <div class="small">Last temperature</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-xs-6">
+                    <div class="panel panel-filled">
+                        <div class="panel-body">
+                            <h2 id="humidity_value" class="m-b-none">
+                                0 <span  class="slight"><i class="fa fa-play fa-rotate-90 c-white"> </i> 0</span>
+                            </h2>
+                            <div class="small">Last humidities</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-12 col-sm-6">
+                    <div class="panel panel-filled">
+                        <div class="panel-body">
+                            <div class="row">
+                                <div class="col-sm-6"><h5 class="m-t-xs">Temperature</h5></div>
+                            </div>
+                            <div class="flot-chart-analytics">
+                                <div class="flot-chart-content" id="temperature_graph"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-12 col-sm-6">
+                    <div class="panel panel-filled">
+                        <div class="panel-body">
+                            <div class="row">
+                                <div class="col-sm-6"><h5 class="m-t-xs">humidities</h5></div>
+                            </div>
+                            <div class="flot-chart-analytics">
+                                <div class="flot-chart-content" id="humidity_graph"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+    <!-- End main content-->
+
+</div>
+<!-- End wrapper-->
+
+<!-- Vendor scripts -->
+<script src="vendor/pacejs/pace.min.js"></script>
+<script src="vendor/jquery/dist/jquery.min.js"></script>
+<script src="vendor/bootstrap/js/bootstrap.min.js"></script>
+<script src="vendor/toastr/toastr.min.js"></script>
+<script src="vendor/sparkline/index.js"></script>
+<script src="vendor/flot/jquery.flot.min.js"></script>
+<script src="vendor/flot/jquery.flot.resize.min.js"></script>
+<script src="vendor/flot/jquery.flot.spline.js"></script>
+
+<!-- App scripts -->
+<script src="scripts/luna.js"></script>
+<script>
+    var index = [];
+    var temperatures = [], humidities = [], times = [];
+    var totalPoints = 10;
+    var updateInterval = 120;
+
+    // Charts option
+    var chartUsersOptions1 = {
+        lines: {
+            show: true,
+            fill: false,
+            lineWidth: 2,
+        },
+        yaxis: {
+            min: 0, max: 40, tickSize: 10
+        },
+        grid: {
+            tickColor: "#484C5A",
+            borderWidth: 0
+        }
+    };
+    // Charts option
+    var chartUsersOptions2 = {
+        lines: {
+            show: true,
+            fill: false,
+            lineWidth: 2,
+        },
+        yaxis: {
+            min: 10, max: 60, tickSize: 10
+        },
+        grid: {
+            tickColor: "#484C5A",
+            borderWidth: 0
+        }
+    };
+
+
+    $(document).ready(function () {
+        setArray(temperatures, 0);
+        setArray(humidities, 0);
+        setArray(times, 0);
+        for (i = 1; i <= totalPoints ; i++) {
+            index.push(i);
+        }
+        var plot_temperture = $.plot($("#temperature_graph"), [reshape(index, temperatures)], chartUsersOptions1);
+        var plot_humidity = $.plot($("#humidity_graph"), [reshape(index, humidities)], chartUsersOptions2);
+
+        setInterval(function(){
+            var xhr = createCORSRequest('GET', "/latest");
+
+            if (!xhr) {
+                throw new Error('CORS not supported');
+            }
+
+            //xhr.withCredentials = true;
+            xhr.onload = function() {
+                var items = xhr.responseText;
+                var responseJson = JSON.parse(items)[0]
+
+                console.log(responseJson['humidity']);
+
+                if(responseJson['_ts'] != times[totalPoints-1]) {
+                    temperatures = temperatures.slice(1,totalPoints);
+                    humidities = humidities.slice(1,totalPoints);
+                    times = times.slice(1,totalPoints);
+
+                    temperatures.push(responseJson['temperature']);
+                    humidities.push(responseJson['humidity']);
+                    times.push(responseJson['_ts']);
+
+                    plot_temperture.setData([reshape(index, temperatures)]);
+                    plot_temperture.draw();
+                    plot_humidity.setData([reshape(index, humidities)]);
+                    plot_humidity.draw();
+
+                    updateLastValuesUI();
+                }            
+            };
+            xhr.onerror = function() {
+                console.log('There was an error!');
+            };
+            xhr.send();
+        }, 3000);
+    });
+
+    function setArray(array, val) {
+        for (i = 0 ; i < totalPoints ; i++) {
+            array.push(val);
+        }
+    }
+    function reshape(index, array) {
+        res = [];
+        for (i = 0 ; i < totalPoints ; i++) {
+            res.push([index[i], array[i]]);
+        }
+
+        return res;
+    }
+    function createCORSRequest(method, url) {
+        var xhr = new XMLHttpRequest();
+        if ("withCredentials" in xhr) {
+            // Check if the XMLHttpRequest object has a "withCredentials" property.
+            // "withCredentials" only exists on XMLHTTPRequest2 objects.
+            xhr.open(method, url, true);
+        } else if (typeof XDomainRequest != "undefined") {
+            // Otherwise, check if XDomainRequest.
+            // XDomainRequest only exists in IE, and is IE's way of making CORS requests.
+            xhr = new XDomainRequest();
+            xhr.open(method, url);
+        } else {
+            // Otherwise, CORS is not supported by the browser.
+            xhr = null;
+        }
+        return xhr;
+    }
+    function updateLastValuesUI() {
+        if (temperatures[totalPoints - 1] - temperatures[totalPoints - 2] > 0) {
+            temperature_tri = "fa-rotate-270 text-warning";
+        } else {
+            temperature_tri = "fa-rotate-90 text-white";
+        }
+
+        if (humidities[totalPoints - 1] - humidities[totalPoints - 2] ) {
+            humidity_tri = "fa-rotate-270 text-warning";
+        } else {
+            humidity_tri = "fa-rotate-90 text-white";
+        }
+
+        temperature_str = temperatures[totalPoints-1] + ' <span class="slight"><i class="fa fa-play ' + temperature_tri + '"></i>&nbsp&nbsp' + (temperatures[totalPoints - 1] - temperatures[totalPoints - 2]).toFixed(2)  + '</span>';
+        humidity_str = humidities[totalPoints-1] + ' <span  class="slight"><i class="fa fa-play ' + humidity_tri + '"></i>&nbsp&nbsp' + (humidities[totalPoints - 1] - humidities[totalPoints - 2]).toFixed(2) + '</span>';
+        $("#temperature_value").html(temperature_str);
+        $("#humidity_value").html(humidity_str);                
+    }
+
+</script>
+
+</body>
+
+</html>

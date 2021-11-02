@@ -1,0 +1,24 @@
+{
+  "name": "hellomonitoring0",
+  "version": "0.0.2",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@azure/cosmos": "^3.14.1",
+    "body-parser": "1.17.x",
+    "cloudant": "1.7.x",
+    "connect-multiparty": "2.0.x",
+    "crypto-js": "^4.1.1",
+    "ejs": "2.5.x",
+    "errorhandler": "1.5.x",
+    "express": "4.15.x",
+    "method-override": "2.3.x",
+    "morgan": "1.8.x"
+  },
+  "repository": {},
+  "engines": {
+    "node": "6.x"
+  }
+}
