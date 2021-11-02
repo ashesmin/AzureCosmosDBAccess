@@ -1,0 +1,378 @@
+[
+    {
+        "id": "3d5d4a69678febd0",
+        "type": "comment",
+        "z": "c006ca15317b491a",
+        "name": "Implementation for application",
+        "info": "",
+        "x": 200,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "c4af16648f516b5d",
+        "type": "azureiothubreceiver",
+        "z": "c006ca15317b491a",
+        "name": "Azure IoT Hub Receiver",
+        "credentials": {},
+        "x": 200,
+        "y": 220,
+        "wires": [
+            [
+                "d27bf28299decef7"
+            ]
+        ]
+    },
+    {
+        "id": "eb3f18d67c4c19be",
+        "type": "change",
+        "z": "c006ca15317b491a",
+        "name": "Set Flow Information",
+        "rules": [
+            {
+                "t": "set",
+                "p": "CosmosDBMasterKey",
+                "pt": "flow",
+                "to": "",
+                "tot": "str"
+            },
+            {
+                "t": "set",
+                "p": "url",
+                "pt": "flow",
+                "to": "",
+                "tot": "str"
+            },
+            {
+                "t": "set",
+                "p": "CosmosDBAPIVersion",
+                "pt": "flow",
+                "to": " 2018-12-31",
+                "tot": "str"
+            },
+            {
+                "t": "set",
+                "p": "method",
+                "pt": "flow",
+                "to": "POST",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 540,
+        "y": 380,
+        "wires": [
+            [
+                "7c5188beb761be61"
+            ]
+        ]
+    },
+    {
+        "id": "7c5188beb761be61",
+        "type": "function",
+        "z": "c006ca15317b491a",
+        "name": "Create AuthKey",
+        "func": "msg.payload = {};\n\nvar mastKey = flow.get(\"CosmosDBMasterKey\");\n\nvar today = new Date();\nvar UTCstring = today.toUTCString();\nflow.set(\"RFC1123time\", UTCstring);\n\nvar url = flow.get('url'); \n\n// strip the url of the hostname up and leading slash\nvar strippedurl = url.replace(new RegExp('^https?://[^/]+/'),'/');\n\n// push the parts down into an array so we can determine if the call is on a specific item\n// or if it is on a resource (odd would mean a resource, even would mean an item)\nvar strippedparts = strippedurl.split(\"/\");\nvar truestrippedcount = (strippedparts.length - 1);\n\n// define resourceId/Type now so we can assign based on the amount of levels\nvar resourceId = \"\";\nvar resType = \"\";\n\n// its odd (resource request)\nif (truestrippedcount % 2)\n{\n    // assign resource type to the last part we found.\n    resType = strippedparts[truestrippedcount];\n    \n    if (truestrippedcount > 1)\n    {\n        // now pull out the resource id by searching for the last slash and substringing to it.\n        var lastPart = strippedurl.lastIndexOf(\"/\");\n        resourceId = strippedurl.substring(1,lastPart);\n    }\n}\nelse // its even (item request on resource)\n{\n    // assign resource type to the part before the last we found (last is resource id)\n    resType = strippedparts[truestrippedcount - 1];\n\n    // finally remove the leading slash which we used to find the resource if it was\n    // only one level deep.\n    strippedurl = strippedurl.substring(1);\n    \n    // assign our resourceId\n    resourceId = strippedurl;\n}\n\n// assign our verb\nvar verb = flow.get('method');\n\n// assign our RFC 1123 date\nvar date = UTCstring.toLowerCase();\n\n// parse our master key out as base64 encoding\nvar cryptojs = context.global.cryptojs;\n\nvar key = cryptojs.enc.Base64.parse(mastKey);\n\nvar text = (verb || \"\").toLowerCase() + \"\\n\" + \n               (resType || \"\").toLowerCase() + \"\\n\" + \n               (resourceId || \"\") + \"\\n\" + \n               (date || \"\").toLowerCase() + \"\\n\" + \n               \"\" + \"\\n\";\n               \nvar signature = cryptojs.HmacSHA256(text, key);\n\n// back to base 64 bits\nvar base64Bits = cryptojs.enc.Base64.stringify(signature);\n\nvar MasterToken = \"master\";\nvar TokenVersion = \"1.0\";\nauth = encodeURIComponent(\"type=\" + MasterToken + \"&ver=\" + TokenVersion + \"&sig=\" + base64Bits);\n\n\nmsg.headers = {};\n\nmsg.headers['Authorization'] = auth;\nmsg.headers['x-ms-version'] = flow.get('CosmosDBAPIVersion');\nmsg.headers['x-ms-date'] = flow.get('RFC1123time');\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 760,
+        "y": 380,
+        "wires": [
+            [
+                "c6accf6559a1b46c"
+            ]
+        ]
+    },
+    {
+        "id": "c6accf6559a1b46c",
+        "type": "function",
+        "z": "c006ca15317b491a",
+        "name": "Generate ID",
+        "func": "var id = \"\";\nvar counts = [8, 4, 4, 4, 12];\n\nfor (i = 0; i < 5; i++) {\n    for (j = 0; j < counts[i]; j++) {\n        id += Math.floor(Math.random() * 16).toString(16);\n    }\n    id +=\"-\";\n}\n\nmsg.payload.id = id;\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 530,
+        "y": 440,
+        "wires": [
+            [
+                "95625b1696baeed9"
+            ]
+        ]
+    },
+    {
+        "id": "be33abe7381c6774",
+        "type": "function",
+        "z": "c006ca15317b491a",
+        "name": "Generate Payload",
+        "func": "rm = flow.get('receivedMessage')\n\nmsg.headers['x-ms-documentdb-is-upsert'] = true;\nmsg.headers['x-ms-documentdb-partitionkey'] = '[\"' + rm.deviceId + '\"]';\n\nmsg.payload.id = rm.deviceId;\nmsg.payload.temperature = rm.temperature;\nmsg.payload.humidity = rm.humidity;\n\nmsg.payload[\"_partitionKey\"] = rm.deviceId;\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 570,
+        "y": 160,
+        "wires": [
+            [
+                "67ccbd0e66d4b98f"
+            ]
+        ]
+    },
+    {
+        "id": "67ccbd0e66d4b98f",
+        "type": "http request",
+        "z": "c006ca15317b491a",
+        "name": "",
+        "method": "POST",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "senderr": false,
+        "credentials": {
+            "user": "",
+            "password": ""
+        },
+        "x": 770,
+        "y": 160,
+        "wires": [
+            [
+                "6a813d43a1d3ef25"
+            ]
+        ]
+    },
+    {
+        "id": "6a813d43a1d3ef25",
+        "type": "debug",
+        "z": "c006ca15317b491a",
+        "name": "Log",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 930,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "4694c499e418c01e",
+        "type": "comment",
+        "z": "c006ca15317b491a",
+        "name": "Update 'Latest' Collection",
+        "info": "",
+        "x": 490,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "6503516636fd4cd3",
+        "type": "comment",
+        "z": "c006ca15317b491a",
+        "name": "Insert 'All' Collection",
+        "info": "",
+        "x": 470,
+        "y": 500,
+        "wires": []
+    },
+    {
+        "id": "95625b1696baeed9",
+        "type": "function",
+        "z": "c006ca15317b491a",
+        "name": "Generate Payload",
+        "func": "rm = flow.get('receivedMessage')\n\nmsg.headers['x-ms-documentdb-partitionkey'] = '[\"' + rm.deviceId + '\"]';\n\nmsg.payload.temperature = rm.temperature;\nmsg.payload.humidity = rm.humidity;\n\nmsg.payload[\"_partitionKey\"] = rm.deviceId;\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 730,
+        "y": 440,
+        "wires": [
+            [
+                "e08ee6ed2110dbc4"
+            ]
+        ]
+    },
+    {
+        "id": "e08ee6ed2110dbc4",
+        "type": "http request",
+        "z": "c006ca15317b491a",
+        "name": "",
+        "method": "POST",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "senderr": false,
+        "credentials": {
+            "user": "",
+            "password": ""
+        },
+        "x": 920,
+        "y": 440,
+        "wires": [
+            [
+                "b697d2bd20220192"
+            ]
+        ]
+    },
+    {
+        "id": "b697d2bd20220192",
+        "type": "debug",
+        "z": "c006ca15317b491a",
+        "name": "Log",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "complete": "true",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1080,
+        "y": 440,
+        "wires": []
+    },
+    {
+        "id": "d27bf28299decef7",
+        "type": "change",
+        "z": "c006ca15317b491a",
+        "name": "Move Received Message",
+        "rules": [
+            {
+                "t": "move",
+                "p": "payload",
+                "pt": "msg",
+                "to": "receivedMessage",
+                "tot": "flow"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 270,
+        "y": 300,
+        "wires": [
+            [
+                "eb3f18d67c4c19be",
+                "7a96da04ef6a9a57"
+            ]
+        ]
+    },
+    {
+        "id": "8d930e609f8c27d9",
+        "type": "function",
+        "z": "c006ca15317b491a",
+        "name": "Create AuthKey",
+        "func": "msg.payload = {};\n\nvar mastKey = flow.get(\"CosmosDBMasterKey\");\n\nvar today = new Date();\nvar UTCstring = today.toUTCString();\nflow.set(\"RFC1123time\", UTCstring);\n\nvar url = flow.get('url'); \n\n// strip the url of the hostname up and leading slash\nvar strippedurl = url.replace(new RegExp('^https?://[^/]+/'),'/');\n\n// push the parts down into an array so we can determine if the call is on a specific item\n// or if it is on a resource (odd would mean a resource, even would mean an item)\nvar strippedparts = strippedurl.split(\"/\");\nvar truestrippedcount = (strippedparts.length - 1);\n\n// define resourceId/Type now so we can assign based on the amount of levels\nvar resourceId = \"\";\nvar resType = \"\";\n\n// its odd (resource request)\nif (truestrippedcount % 2)\n{\n    // assign resource type to the last part we found.\n    resType = strippedparts[truestrippedcount];\n    \n    if (truestrippedcount > 1)\n    {\n        // now pull out the resource id by searching for the last slash and substringing to it.\n        var lastPart = strippedurl.lastIndexOf(\"/\");\n        resourceId = strippedurl.substring(1,lastPart);\n    }\n}\nelse // its even (item request on resource)\n{\n    // assign resource type to the part before the last we found (last is resource id)\n    resType = strippedparts[truestrippedcount - 1];\n\n    // finally remove the leading slash which we used to find the resource if it was\n    // only one level deep.\n    strippedurl = strippedurl.substring(1);\n    \n    // assign our resourceId\n    resourceId = strippedurl;\n}\n\n// assign our verb\nvar verb = flow.get('method');\n\n// assign our RFC 1123 date\nvar date = UTCstring.toLowerCase();\n\n// parse our master key out as base64 encoding\nvar cryptojs = context.global.cryptojs;\n\nvar key = cryptojs.enc.Base64.parse(mastKey);\n\nvar text = (verb || \"\").toLowerCase() + \"\\n\" + \n               (resType || \"\").toLowerCase() + \"\\n\" + \n               (resourceId || \"\") + \"\\n\" + \n               (date || \"\").toLowerCase() + \"\\n\" + \n               \"\" + \"\\n\";\n               \nvar signature = cryptojs.HmacSHA256(text, key);\n\n// back to base 64 bits\nvar base64Bits = cryptojs.enc.Base64.stringify(signature);\n\nvar MasterToken = \"master\";\nvar TokenVersion = \"1.0\";\nauth = encodeURIComponent(\"type=\" + MasterToken + \"&ver=\" + TokenVersion + \"&sig=\" + base64Bits);\n\n\nmsg.headers = {};\n\nmsg.headers['Authorization'] = auth;\nmsg.headers['x-ms-version'] = flow.get('CosmosDBAPIVersion');\nmsg.headers['x-ms-date'] = flow.get('RFC1123time');\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 760,
+        "y": 220,
+        "wires": [
+            [
+                "be33abe7381c6774"
+            ]
+        ]
+    },
+    {
+        "id": "f8531032cf92ac12",
+        "type": "inject",
+        "z": "c006ca15317b491a",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"deviceId\":\"device145\",\"temperature\":23.5,\"humidity\":30}",
+        "payloadType": "json",
+        "x": 190,
+        "y": 380,
+        "wires": [
+            [
+                "d27bf28299decef7"
+            ]
+        ]
+    },
+    {
+        "id": "7a96da04ef6a9a57",
+        "type": "change",
+        "z": "c006ca15317b491a",
+        "name": "Set Flow Information",
+        "rules": [
+            {
+                "t": "set",
+                "p": "CosmosDBMasterKey",
+                "pt": "flow",
+                "to": "",
+                "tot": "str"
+            },
+            {
+                "t": "set",
+                "p": "CosmosDBAPIVersion",
+                "pt": "flow",
+                "to": " 2018-12-31",
+                "tot": "str"
+            },
+            {
+                "t": "set",
+                "p": "url",
+                "pt": "flow",
+                "to": "",
+                "tot": "str"
+            },
+            {
+                "t": "set",
+                "p": "method",
+                "pt": "flow",
+                "to": "POST",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 540,
+        "y": 220,
+        "wires": [
+            [
+                "8d930e609f8c27d9"
+            ]
+        ]
+    }
+]
