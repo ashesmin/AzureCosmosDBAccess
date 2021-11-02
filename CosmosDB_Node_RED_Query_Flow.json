@@ -1,0 +1,149 @@
+[
+    {
+        "id": "a5966c8f238efe0c",
+        "type": "function",
+        "z": "c006ca15317b491a",
+        "name": "Create AuthKey",
+        "func": "msg.payload = {};\n\nvar mastKey = flow.get(\"CosmosDBMasterKey\");\n\nvar today = new Date();\nvar UTCstring = today.toUTCString();\nflow.set(\"RFC1123time\", UTCstring);\n\nvar url = flow.get('url'); \n\n// strip the url of the hostname up and leading slash\nvar strippedurl = url.replace(new RegExp('^https?://[^/]+/'),'/');\n\n// push the parts down into an array so we can determine if the call is on a specific item\n// or if it is on a resource (odd would mean a resource, even would mean an item)\nvar strippedparts = strippedurl.split(\"/\");\nvar truestrippedcount = (strippedparts.length - 1);\n\n// define resourceId/Type now so we can assign based on the amount of levels\nvar resourceId = \"\";\nvar resType = \"\";\n\n// its odd (resource request)\nif (truestrippedcount % 2)\n{\n    // assign resource type to the last part we found.\n    resType = strippedparts[truestrippedcount];\n    \n    if (truestrippedcount > 1)\n    {\n        // now pull out the resource id by searching for the last slash and substringing to it.\n        var lastPart = strippedurl.lastIndexOf(\"/\");\n        resourceId = strippedurl.substring(1,lastPart);\n    }\n}\nelse // its even (item request on resource)\n{\n    // assign resource type to the part before the last we found (last is resource id)\n    resType = strippedparts[truestrippedcount - 1];\n\n    // finally remove the leading slash which we used to find the resource if it was\n    // only one level deep.\n    strippedurl = strippedurl.substring(1);\n    \n    // assign our resourceId\n    resourceId = strippedurl;\n}\n\n// assign our verb\nvar verb = flow.get('method');\n\n// assign our RFC 1123 date\nvar date = UTCstring.toLowerCase();\n\n// parse our master key out as base64 encoding\nvar cryptojs = context.global.cryptojs;\n\nvar key = cryptojs.enc.Base64.parse(mastKey);\n\nvar text = (verb || \"\").toLowerCase() + \"\\n\" + \n               (resType || \"\").toLowerCase() + \"\\n\" + \n               (resourceId || \"\") + \"\\n\" + \n               (date || \"\").toLowerCase() + \"\\n\" + \n               \"\" + \"\\n\";\n               \nvar signature = cryptojs.HmacSHA256(text, key);\n\n// back to base 64 bits\nvar base64Bits = cryptojs.enc.Base64.stringify(signature);\n\nvar MasterToken = \"master\";\nvar TokenVersion = \"1.0\";\nauth = encodeURIComponent(\"type=\" + MasterToken + \"&ver=\" + TokenVersion + \"&sig=\" + base64Bits);\n\n\nmsg.headers = {};\n\nmsg.headers['Authorization'] = auth;\nmsg.headers['x-ms-version'] = flow.get('CosmosDBAPIVersion');\nmsg.headers['x-ms-date'] = flow.get('RFC1123time');\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 720,
+        "y": 480,
+        "wires": [
+            [
+                "5488578143fc4970"
+            ]
+        ]
+    },
+    {
+        "id": "246899faa922fd65",
+        "type": "change",
+        "z": "c006ca15317b491a",
+        "name": "Set Flow Information",
+        "rules": [
+            {
+                "t": "set",
+                "p": "CosmosDBMasterKey",
+                "pt": "flow",
+                "to": "",
+                "tot": "str"
+            },
+            {
+                "t": "set",
+                "p": "url",
+                "pt": "flow",
+                "to": "",
+                "tot": "str"
+            },
+            {
+                "t": "set",
+                "p": "CosmosDBAPIVersion",
+                "pt": "flow",
+                "to": " 2018-12-31",
+                "tot": "str"
+            },
+            {
+                "t": "set",
+                "p": "method",
+                "pt": "flow",
+                "to": "POST",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 500,
+        "y": 480,
+        "wires": [
+            [
+                "a5966c8f238efe0c"
+            ]
+        ]
+    },
+    {
+        "id": "5488578143fc4970",
+        "type": "function",
+        "z": "c006ca15317b491a",
+        "name": "Create Query",
+        "func": "msg.headers['x-ms-documentdb-isquery'] = true;\nmsg.headers['Content-Type'] = 'application/query+json';\nmsg.headers['x-ms-documentdb-query-enablecrosspartition'] = true;\n\nmsg.payload = {};\n\nmsg.payload.query = \"SELECT * FROM root r WHERE r._partitionKey = 'device146'\";\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 480,
+        "y": 540,
+        "wires": [
+            [
+                "11f172526f8fad44"
+            ]
+        ]
+    },
+    {
+        "id": "cba6b5a34464f67f",
+        "type": "inject",
+        "z": "c006ca15317b491a",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payloadType": "date",
+        "x": 300,
+        "y": 480,
+        "wires": [
+            [
+                "246899faa922fd65"
+            ]
+        ]
+    },
+    {
+        "id": "11f172526f8fad44",
+        "type": "http request",
+        "z": "c006ca15317b491a",
+        "name": "",
+        "method": "POST",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "senderr": false,
+        "x": 670,
+        "y": 540,
+        "wires": [
+            [
+                "9a2fc04241af3aa4"
+            ]
+        ]
+    },
+    {
+        "id": "9a2fc04241af3aa4",
+        "type": "debug",
+        "z": "c006ca15317b491a",
+        "name": "Log",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "complete": "true",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 830,
+        "y": 540,
+        "wires": []
+    }
+]
