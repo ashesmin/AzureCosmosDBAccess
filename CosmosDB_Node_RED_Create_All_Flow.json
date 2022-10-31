@@ -1,172 +1,164 @@
 [
-    {
-        "id": "0b5c44723eaa6cf7",
-        "type": "function",
-        "z": "c006ca15317b491a",
-        "name": "Create AuthKey",
-        "func": "msg.payload = {};\n\nvar mastKey = flow.get(\"CosmosDBMasterKey\");\n\nvar today = new Date();\nvar UTCstring = today.toUTCString();\nflow.set(\"RFC1123time\", UTCstring);\n\nvar url = flow.get('url'); \n\n// strip the url of the hostname up and leading slash\nvar strippedurl = url.replace(new RegExp('^https?://[^/]+/'),'/');\n\n// push the parts down into an array so we can determine if the call is on a specific item\n// or if it is on a resource (odd would mean a resource, even would mean an item)\nvar strippedparts = strippedurl.split(\"/\");\nvar truestrippedcount = (strippedparts.length - 1);\n\n// define resourceId/Type now so we can assign based on the amount of levels\nvar resourceId = \"\";\nvar resType = \"\";\n\n// its odd (resource request)\nif (truestrippedcount % 2)\n{\n    // assign resource type to the last part we found.\n    resType = strippedparts[truestrippedcount];\n    \n    if (truestrippedcount > 1)\n    {\n        // now pull out the resource id by searching for the last slash and substringing to it.\n        var lastPart = strippedurl.lastIndexOf(\"/\");\n        resourceId = strippedurl.substring(1,lastPart);\n    }\n}\nelse // its even (item request on resource)\n{\n    // assign resource type to the part before the last we found (last is resource id)\n    resType = strippedparts[truestrippedcount - 1];\n\n    // finally remove the leading slash which we used to find the resource if it was\n    // only one level deep.\n    strippedurl = strippedurl.substring(1);\n    \n    // assign our resourceId\n    resourceId = strippedurl;\n}\n\n// assign our verb\nvar verb = flow.get('method');\n\n// assign our RFC 1123 date\nvar date = UTCstring.toLowerCase();\n\n// parse our master key out as base64 encoding\nvar cryptojs = context.global.cryptojs;\n\nvar key = cryptojs.enc.Base64.parse(mastKey);\n\nvar text = (verb || \"\").toLowerCase() + \"\\n\" + \n               (resType || \"\").toLowerCase() + \"\\n\" + \n               (resourceId || \"\") + \"\\n\" + \n               (date || \"\").toLowerCase() + \"\\n\" + \n               \"\" + \"\\n\";\n               \nvar signature = cryptojs.HmacSHA256(text, key);\n\n// back to base 64 bits\nvar base64Bits = cryptojs.enc.Base64.stringify(signature);\n\nvar MasterToken = \"master\";\nvar TokenVersion = \"1.0\";\nauth = encodeURIComponent(\"type=\" + MasterToken + \"&ver=\" + TokenVersion + \"&sig=\" + base64Bits);\n\n\nmsg.headers = {};\n\nmsg.headers['Authorization'] = auth;\nmsg.headers['x-ms-version'] = flow.get('CosmosDBAPIVersion');\nmsg.headers['x-ms-date'] = flow.get('RFC1123time');\n\nreturn msg;",
-        "outputs": 1,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 600,
-        "y": 400,
-        "wires": [
-            [
-                "0a10ca968ecba96f"
-            ]
-        ]
-    },
-    {
-        "id": "5aeb422823ca710d",
-        "type": "change",
-        "z": "c006ca15317b491a",
-        "name": "Set Flow Information",
-        "rules": [
-            {
-                "t": "set",
-                "p": "CosmosDBMasterKey",
-                "pt": "flow",
-                "to": "",
-                "tot": "str"
-            },
-            {
-                "t": "set",
-                "p": "url",
-                "pt": "flow",
-                "to": "",
-                "tot": "str"
-            },
-            {
-                "t": "set",
-                "p": "CosmosDBAPIVersion",
-                "pt": "flow",
-                "to": " 2018-12-31",
-                "tot": "str"
-            },
-            {
-                "t": "set",
-                "p": "method",
-                "pt": "flow",
-                "to": "POST",
-                "tot": "str"
-            }
-        ],
-        "action": "",
-        "property": "",
-        "from": "",
+  {
+    "id": "6dd1b144678f2754",
+    "type": "function",
+    "z": "71ac08577ce4608a",
+    "name": "Generate ID",
+    "func": "msg.payload = {};\n\nvar id = \"\";\nvar counts = [8, 4, 4, 4, 12];\nvar i, j;\n\nfor (i = 0; i < 5; i++) {\n    for (j = 0; j < counts[i]; j++) {\n        id += Math.floor(Math.random() * 16).toString(16);\n    }\n    id +=\"-\";\n}\n\nmsg.payload.id = id;\n\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 330,
+    "y": 280,
+    "wires": [["9201eba568132e28"]]
+  },
+  {
+    "id": "92f48d039e6f0988",
+    "type": "inject",
+    "z": "71ac08577ce4608a",
+    "name": "",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payloadType": "date",
+    "x": 160,
+    "y": 220,
+    "wires": [["ee58adc3495775c2"]]
+  },
+  {
+    "id": "9201eba568132e28",
+    "type": "function",
+    "z": "71ac08577ce4608a",
+    "name": "Generate Payload",
+    "func": "msg.headers['x-ms-documentdb-partitionkey'] = '[\"device146\"]';\n\nmsg.payload.temperature = 23;\nmsg.payload.humidity = 30;\n\nmsg.payload[\"_partitionKey\"] = \"device146\";\n\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 520,
+    "y": 280,
+    "wires": [["58168a673e994e35"]]
+  },
+  {
+    "id": "c0584a20bb6af1df",
+    "type": "debug",
+    "z": "71ac08577ce4608a",
+    "name": "Log",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "complete": "true",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 870,
+    "y": 280,
+    "wires": []
+  },
+  {
+    "id": "ee58adc3495775c2",
+    "type": "change",
+    "z": "71ac08577ce4608a",
+    "name": "Set Flow Information",
+    "rules": [
+      {
+        "t": "set",
+        "p": "authorization_type",
+        "pt": "flow",
+        "to": "master",
+        "tot": "str"
+      },
+      {
+        "t": "set",
+        "p": "authorization_version",
+        "pt": "flow",
+        "to": "1.0",
+        "tot": "str"
+      },
+      {
+        "t": "set",
+        "p": "authorization_signature",
+        "pt": "flow",
         "to": "",
-        "reg": false,
-        "x": 380,
-        "y": 400,
-        "wires": [
-            [
-                "0b5c44723eaa6cf7"
-            ]
-        ]
+        "tot": "str"
+      },
+      {
+        "t": "set",
+        "p": "x-ms-version",
+        "pt": "flow",
+        "to": " 2018-12-31",
+        "tot": "str"
+      },
+      {
+        "t": "set",
+        "p": "method",
+        "pt": "flow",
+        "to": "POST",
+        "tot": "str"
+      },
+      {
+        "t": "set",
+        "p": "url",
+        "pt": "flow",
+        "to": "",
+        "tot": "str"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 360,
+    "y": 220,
+    "wires": [["368c30fe6bfb71b1"]]
+  },
+  {
+    "id": "368c30fe6bfb71b1",
+    "type": "function",
+    "z": "71ac08577ce4608a",
+    "name": "Create AuthKey",
+    "func": "let urlRegExp = /^https?:\\/\\/.*\\.documents\\.azure\\.com(?::\\d+)?(?:\\/([^\\/]+)(?:\\/([^\\/]+)?)?)+$/i;\n\n// Getting necessary values from collection variables.\n// See: https://learning.postman.com/docs/sending-requests/variables/\nlet autorizationType = flow.get(\"authorization_type\");\nlet autorizationVersion = flow.get(\"authorization_version\");\nlet authorizationSignature = flow.get(\n    \"authorization_signature\"\n);\nlet cosmosDBApiVersion = flow.get(\"x-ms-version\");\nlet url = flow.get(\"url\");\n\nvar cryptojs = context.global.cryptojs;\n\n// Decode authorization signature (it is originally base64 coded)\nlet key = cryptojs.enc.Base64.parse(authorizationSignature);\n// Set request date formatting as UTC\nlet dateUtc = new Date().toUTCString();\n// Get request method (a.k.a. verb) to build text for authorization token\nlet verb = flow.get(\"method\");\n\n// Execute regular expression to extract some parts from URL.\nlet parsedUrl = urlRegExp.exec(url);\n// Get resource type from URL\nlet resourceType = parsedUrl[1];\n// Get resource ID from URL, if it is not present, we are getting undefined.\nlet resourceId = parsedUrl[2];\n\n// Build regular expression to get all parameters from URL to build ResourceLink part.\n// See \"Example Encoding\" in: https://docs.microsoft.com/en-us/rest/api/cosmos-db/access-control-on-cosmosdb-resources\nlet resourceLinkPattern =\n    /^https?:\\/\\/.*\\.documents\\.azure\\.com(?::\\d+)?\\/(.*)$/i;\nlet parsedResourceLink = resourceLinkPattern.exec(url);\n// Get resource LInke from expression and in case last character is / we just drop it out.\nlet resourceLink =\n    parsedResourceLink[1].charAt(parsedResourceLink[1].length - 1) === \"/\"\n        ? parsedResourceLink[1].substring(\n            parsedResourceLink[1],\n            parsedResourceLink[1].length - 1\n        )\n        : parsedResourceLink[1];\n// When Resource Id is present in parameters, then Resource Link is whole parameters part,\n// elsewhere, then we need to drop last /resource type to\n// build Resource Link.\n// Example:\n// for URL: https://myaccount.documents.azure.com/dbs/MyCollection/colls/\n// Resource Link will be just: dbs/MyCollection\nif (resourceId === undefined) {\n    // Resource Id not provided\n    // We need to cut last part to left just Resource Id\n    resourceLink = resourceLink.substring(0, resourceLink.lastIndexOf(\"/\"));\n}\n\n// Build string to be encrypted and used as signature.\n// See: https://docs.microsoft.com/en-us/rest/api/cosmos-db/access-control-on-cosmosdb-resources\nvar text =\n    (verb || \"\").toLowerCase() +\n    \"\\n\" +\n    (resourceType || \"\").toLowerCase() +\n    \"\\n\" +\n    (resourceLink || \"\") +\n    \"\\n\" +\n    dateUtc.toLowerCase() +\n    \"\\n\\n\";\n// Build key to authorize request.\nlet signature = cryptojs.HmacSHA256(text, key);\n// Code key as base64 to be sent.\nlet signature_base64 = cryptojs.enc.Base64.stringify(signature);\n// Build autorization token and encode it as URI to be sent.\nvar authorizationToken = encodeURIComponent(\n    \"type=\" +\n    autorizationType +\n    \"&ver=\" +\n    autorizationVersion +\n    \"&sig=\" +\n    signature_base64\n);\n\n// Set request headers\nmsg.headers = {};\n\nmsg.headers['Authorization'] = authorizationToken;\nmsg.headers['x-ms-version'] = cosmosDBApiVersion;\nmsg.headers['x-ms-date'] = dateUtc;\nmsg.headers['Accept'] = \"application/json\";\n\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 580,
+    "y": 220,
+    "wires": [["6dd1b144678f2754"]]
+  },
+  {
+    "id": "58168a673e994e35",
+    "type": "http request",
+    "z": "71ac08577ce4608a",
+    "name": "",
+    "method": "POST",
+    "ret": "txt",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "credentials": {
+      "user": "",
+      "password": ""
     },
-    {
-        "id": "0a10ca968ecba96f",
-        "type": "function",
-        "z": "c006ca15317b491a",
-        "name": "Generate ID",
-        "func": "var id = \"\";\nvar counts = [8, 4, 4, 4, 12];\n\nfor (i = 0; i < 5; i++) {\n    for (j = 0; j < counts[i]; j++) {\n        id += Math.floor(Math.random() * 16).toString(16);\n    }\n    id +=\"-\";\n}\n\nmsg.payload.id = id;\n\nreturn msg;",
-        "outputs": 1,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 350,
-        "y": 460,
-        "wires": [
-            [
-                "1ea93cee687a226b"
-            ]
-        ]
-    },
-    {
-        "id": "c4dc6cc98a86b4f3",
-        "type": "inject",
-        "z": "c006ca15317b491a",
-        "name": "",
-        "props": [
-            {
-                "p": "payload"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payloadType": "date",
-        "x": 180,
-        "y": 400,
-        "wires": [
-            [
-                "5aeb422823ca710d"
-            ]
-        ]
-    },
-    {
-        "id": "1ea93cee687a226b",
-        "type": "function",
-        "z": "c006ca15317b491a",
-        "name": "Generate Payload",
-        "func": "msg.headers['x-ms-documentdb-partitionkey'] = '[\"device146\"]';\n\nmsg.payload.temperature = 23;\nmsg.payload.humidity = 30;\n\nmsg.payload[\"_partitionKey\"] = \"device146\";\n\nreturn msg;",
-        "outputs": 1,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 540,
-        "y": 460,
-        "wires": [
-            [
-                "83a27a31d476506d"
-            ]
-        ]
-    },
-    {
-        "id": "83a27a31d476506d",
-        "type": "http request",
-        "z": "c006ca15317b491a",
-        "name": "",
-        "method": "POST",
-        "ret": "txt",
-        "paytoqs": "ignore",
-        "url": "",
-        "tls": "",
-        "persist": false,
-        "proxy": "",
-        "authType": "",
-        "senderr": false,
-        "credentials": {
-            "user": "",
-            "password": ""
-        },
-        "x": 730,
-        "y": 460,
-        "wires": [
-            [
-                "d10bc57cac9e837c"
-            ]
-        ]
-    },
-    {
-        "id": "d10bc57cac9e837c",
-        "type": "debug",
-        "z": "c006ca15317b491a",
-        "name": "Log",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "complete": "true",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 890,
-        "y": 460,
-        "wires": []
-    }
+    "x": 710,
+    "y": 280,
+    "wires": [["c0584a20bb6af1df"]]
+  }
 ]
