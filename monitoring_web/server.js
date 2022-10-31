@@ -30,7 +30,7 @@ app.use('/style', express.static(path.join(__dirname, '/views/style')));
 
 const config = require("./config");
 const CosmosClient = require("@azure/cosmos").CosmosClient;
-const { endpoint, key, databaseId, containerId } = config;
+const { endpoint, key, databaseId, containerId, partitionKey } = config;
 
 const client = new CosmosClient({ endpoint, key });
 
@@ -38,14 +38,15 @@ const database = client.database(databaseId);
 const container = database.container(containerId);
 
 app.get('/latest', async function(request, response) {
+    
     const querySpec = {
-        query: "SELECT * from root r WHERE r.id = 'NodeMCU'"
+        query: "SELECT TOP 1 * from root r WHERE r._partitionKey = '" + partitionKey.kind + "' ORDER BY r._ts DESC"
         // query: "SELECT * from root r"
     };
+
     const { resources: items } = await container.items
           .query(querySpec)
           .fetchAll();
-
     response.send(items);
 });
 

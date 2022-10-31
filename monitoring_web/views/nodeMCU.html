@@ -211,43 +211,33 @@
         var plot_temperture = $.plot($("#temperature_graph"), [reshape(index, temperatures)], chartUsersOptions1);
         var plot_humidity = $.plot($("#humidity_graph"), [reshape(index, humidities)], chartUsersOptions2);
 
-        setInterval(function(){
-            var xhr = createCORSRequest('GET', "/latest");
+        setInterval(async function() {
+            result = await getLatest('/latest');
 
-            if (!xhr) {
-                throw new Error('CORS not supported');
-            }
+            responseJson = result[0];
 
-            //xhr.withCredentials = true;
-            xhr.onload = function() {
-                var items = xhr.responseText;
-                var responseJson = JSON.parse(items)[0]
+            if(responseJson['_ts'] != times[totalPoints-1]) {
+                temperatures = temperatures.slice(1,totalPoints);
+                humidities = humidities.slice(1,totalPoints);
+                times = times.slice(1,totalPoints);
 
-                console.log(responseJson['humidity']);
+                temperatures.push(responseJson['temperature']);
+                humidities.push(responseJson['humidity']);
+                times.push(responseJson['_ts']);
 
-                if(responseJson['_ts'] != times[totalPoints-1]) {
-                    temperatures = temperatures.slice(1,totalPoints);
-                    humidities = humidities.slice(1,totalPoints);
-                    times = times.slice(1,totalPoints);
+                plot_temperture.setData([reshape(index, temperatures)]);
+                plot_temperture.draw();
+                plot_humidity.setData([reshape(index, humidities)]);
+                plot_humidity.draw();
 
-                    temperatures.push(responseJson['temperature']);
-                    humidities.push(responseJson['humidity']);
-                    times.push(responseJson['_ts']);
-
-                    plot_temperture.setData([reshape(index, temperatures)]);
-                    plot_temperture.draw();
-                    plot_humidity.setData([reshape(index, humidities)]);
-                    plot_humidity.draw();
-
-                    updateLastValuesUI();
-                }            
-            };
-            xhr.onerror = function() {
-                console.log('There was an error!');
-            };
-            xhr.send();
+                updateLastValuesUI();
+            }            
         }, 3000);
     });
+
+    function getLatest(url) {
+        return fetch(url).then((response) => response.json());
+    }
 
     function setArray(array, val) {
         for (i = 0 ; i < totalPoints ; i++) {
